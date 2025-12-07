@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Restaurante v4.4 - Final</title>
+    
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        $(document).on('dragstart', 'img', function(evt) {
+        evt.preventDefault();
+        });
+    </script>
+    <style>
+        :root {
+            --sidebar-bg: #2c3e50; --content-bg: #ecf0f1; --primary: #3498db;
+            --success: #2ecc71; --danger: #e74c3c; --warning: #f39c12;
+            --text-light: #ecf0f1; --text-dark: #34495e; --border-color: #bdc3c7;
+            --card-bg: #ffffff;
+        }
+
+        * { box-sizing: border-box; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;  }
+
+        body { font-family: 'Roboto', sans-serif; margin: 0; background-color: var(--content-bg); display: flex; }
+
+        .sidebar { width: 250px; background-color: var(--sidebar-bg); height: 100vh; padding-top: 20px; color: var(--text-light); position: fixed; display: flex; flex-direction: column; }
+        .sidebar-header { text-align: center; padding: 0 20px; margin-bottom: 30px; }
+        .sidebar-header h2 { margin: 0; }
+        .sidebar-menu { list-style: none; padding: 0; margin: 0; flex-grow: 1; }
+        .sidebar-menu li a { display: flex; align-items: center; padding: 15px 25px; color: var(--text-light); text-decoration: none; transition: all 0.2s; position: relative; }
+        .sidebar-menu li a:hover, .sidebar-menu li a.active { background-color: #34495e; padding-left: 30px; }
+        .sidebar-menu li a i { width: 30px; font-size: 1.2em; }
+        .notification-badge { background-color: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 0.8em; display: flex; justify-content: center; align-items: center; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); } }
+        #sidebar-clock-container { padding: 15px 25px; text-align: center; }
+        #sidebar-clock-container hr { border: none; border-top: 1px solid #34495e; margin-bottom: 15px; }
+        #sidebar-clock { font-size: 0.9em; color: var(--text-secondary); }
+
+        .content { margin-left: 250px; padding: 30px; width: calc(100% - 250px); }
+        .screen.hidden { display: none; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
+        .content-header h1 { color: var(--text-dark); margin: 0; }
+        .current-user-selector { display: flex; align-items: center; gap: 10px; }
+        .current-user-selector label { font-weight: 500; }
+        #currentUser { padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border-color); }
+        
+        .data-table { width: 100%; border-collapse: collapse; background: var(--card-bg); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .data-table th, .data-table td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
+        .data-table th { background-color: #f8f8f8; }
+        .actions-cell button { border: none; background: none; cursor: pointer; font-size: 1.1em; margin-right: 8px; }
+        .profile-pic-cell { width: 60px; text-align: center; }
+        .profile-pic { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .profile-pic-icon { font-size: 40px; color: var(--border-color); }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .dashboard-card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; align-items: center; }
+        .dashboard-card .icon { font-size: 2.5em; margin-right: 20px; }
+        .dashboard-card .info h3 { margin: 0 0 5px 0; font-size: 1.2em; color: var(--text-dark); }
+        .dashboard-card .info p { margin: 0; font-size: 1.8em; font-weight: 700; }
+        .quick-actions { margin-top: 30px; }
+        .quick-actions h2 { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; text-align: left; }
+        .quick-actions-buttons { display: flex; gap: 15px; }
+        .btn-primary { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1em; font-weight: 500; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card-bg); border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); width: 90%; max-width: 500px; z-index: 1000; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { margin: 0; font-size: 1.5em; color: var(--text-dark); }
+        .modal-body { padding: 20px; max-height: 70vh; overflow-y: auto; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid #eee; text-align: right; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; }
+        .btn { padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: 500; border: none; }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-secondary { background-color: #7f8c8d; color: white; }
+        
+        .profile-pic-preview-container { text-align: center; margin-bottom: 15px; }
+        .profile-pic-preview { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border-color); box-shadow: 5px 10px 10px #888888; display: inline-block; vertical-align: middle; }
+        .profile-pic-preview-icon { font-size: 120px; color: var(--border-color); box-shadow: 5px 10px 10px #888888; border-radius: 50%; }
+        
+        .filters { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .filters select, .filters button { padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); }
+        
+        #cocina-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .order-card { background: var(--card-bg); padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid var(--warning); cursor: pointer; transition: transform 0.2s; }
+        .order-card:hover { transform: translateY(-5px); }
+        .order-card h3 { margin: 0 0 10px 0; }
+        #cocinaDetailModal ul { list-style: none; padding: 0; }
+        #cocinaDetailModal li { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; font-size: 1.1em; }
+        #cocinaDetailModal input[type="checkbox"] { width: 20px; height: 20px; margin-right: 15px; cursor: pointer; }
+        #cocinaDetailModal li.done { text-decoration: line-through; color: #aaa; }
+        
+        #tablesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 15px; }
+        .table-btn { height: 100px; border: 2px solid var(--success); color: var(--success); background: #f0fff4; font-size: 1.2em; font-weight: 700; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .table-btn.occupied { border-color: var(--warning); color: var(--warning); background: #fffbeb; }
+        .table-btn:hover { transform: scale(1.05); }
+        .table-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        #orderMenuModal { max-width: 600px; }
+        .menu-category h3 { border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+        .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .menu-item .quantity-input { width: 70px; text-align: center; }
+        
+        #receiptModal { max-width: 400px; font-family: 'Courier New', Courier, monospace; }
+        .receipt-item, .receipt-totals div { display: flex; justify-content: space-between; }
+        .receipt-totals div { font-weight: bold; }
+        #barcode { display: block; margin: 20px auto 0 auto; }
+        
+        #toast { display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); color: white; padding: 15px 25px; border-radius: 5px; z-index: 1001; opacity: 0; transition: opacity 0.3s, bottom 0.3s; }
+        #toast.show { display: block; opacity: 1; bottom: 50px; }
+        .toast-success { background-color: var(--success); }
+        .toast-error { background-color: var(--danger); }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header"><h2><i class="fa fa-utensils"></i> RestóSystem</h2></div>
+        <ul class="sidebar-menu">
+            <li><a href="#" data-screen="dashboard"><i class="fa fa-tachometer-alt"></i> Dashboard</a></li>
+            <li><a href="#" data-screen="personal"><i class="fa fa-users"></i> Personal</a></li>
+            <li><a href="#" data-screen="menu"><i class="fa fa-book-open"></i> Menú</a></li>
+            <li><a href="#" data-screen="cocina"><i class="fa fa-fire-burner"></i> Cocina <span class="notification-badge hidden"></span></a></li>
+            <li><a href="#" data-screen="history"><i class="fa fa-history"></i> Historial</a></li>
+            <hr style="border-color: #34495e; margin: 10px 20px;">
+            <li><a href="#" id="navVentas"><i class="fa fa-cash-register"></i> Nuevo Pedido</a></li>
+            <li><a href="#" id="navGenerarVenta"><i class="fa fa-file-invoice-dollar"></i> Generar Venta</a></li>
+        </ul>
+        <div id="sidebar-clock-container">
+            <hr>
+            <div id="sidebar-clock"></div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="content-header">
+            <h1 id="screenTitle"></h1>
+            <div class="current-user-selector">
+                <label for="currentUser"><i class="fa fa-user-circle"></i> Usuario Actual:</label>
+                <select id="currentUser"></select>
+            </div>
+        </div>
+        
+        <div id="dashboard-screen" class="screen">
+            <div class="dashboard-grid">
+                <div class="dashboard-card"><div class="icon" style="color:var(--warning);"><i class="fa fa-chair"></i></div><div class="info"><h3>Mesas Ocupadas</h3><p id="occupiedTablesCount">0 / 10</p></div></div>
+                <div class="dashboard-card"><div class="icon" style="color:var(--primary);"><i class="fa fa-users"></i></div><div class="info"><h3>Personal Activo</h3><p id="personalCount">0</p></div></div>
+                <div class="dashboard-card"><div class="icon" style="color:var(--success);"><i class="fa fa-utensils"></i></div><div class="info"><h3>Platos en Menú</h3><p id="menuCount">0</p></div></div>
+            </div>
+            <div class="quick-actions"><h2>Acciones Rápidas</h2><div class="quick-actions-buttons"><button id="quickOrderBtn" class="btn-primary"><i class="fa fa-plus"></i> Nuevo Pedido</button><button id="quickBillBtn" class="btn-primary" style="background-color: var(--success);"><i class="fa fa-dollar-sign"></i> Generar Venta</button></div></div>
+        </div>
+        <div id="personal-screen" class="screen hidden">
+            <div class="content-header" style="padding-bottom:0; border:none; justify-content:flex-end;"><button id="addPersonalBtn" class="btn-primary"><i class="fa fa-plus"></i> Añadir Empleado</button></div>
+            <table class="data-table"><thead><tr><th>Foto</th><th>Nombre</th><th>RUT</th><th>Cargo</th><th>Acciones</th></tr></thead><tbody id="personalTableBody"></tbody></table>
+        </div>
+        <div id="menu-screen" class="screen hidden">
+            <div class="content-header" style="padding-bottom:0; border:none; justify-content:flex-end;"><button id="addMenuBtn" class="btn-primary"><i class="fa fa-plus"></i> Añadir Plato</button></div>
+            <table class="data-table"><thead><tr><th>Nombre</th><th>Precio</th><th>Categoría</th><th>Acciones</th></tr></thead><tbody id="menuTableBody"></tbody></table>
+        </div>
+        <div id="cocina-screen" class="screen hidden"><div id="cocina-grid"></div></div>
+        <div id="history-screen" class="screen hidden">
+            <div class="filters">
+                <label for="filterMonth">Filtrar por Mes:</label><select id="filterMonth"><option value="">Todos</option></select>
+                <label for="filterTable">Filtrar por Mesa:</label><select id="filterTable"><option value="">Todas</option></select>
+                <button id="clearFiltersBtn" class="btn-secondary">Limpiar</button>
+            </div>
+            <table class="data-table"><thead><tr><th>ID Venta</th><th>Mesa</th><th>Fecha</th><th>Total</th><th>Acciones</th></tr></thead><tbody id="salesHistoryTableBody"></tbody></table>
+        </div>
+    </div>
+
+    <div class="modal-overlay"></div>
+    <div class="modal" id="tablesModal"><div class="modal-header"><h2>Seleccionar Mesa</h2></div><div class="modal-body"><div id="tablesGrid"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cerrar</button></div></div>
+    <div class="modal" id="orderMenuModal"><div class="modal-header"><h2>Tomar Pedido - Mesa <span id="orderModalTableNumber"></span></h2></div><div class="modal-body" id="orderMenuItems"></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cancelar</button><button id="saveOrderBtn" class="btn btn-success">Generar Pedido</button></div></div>
+    <div class="modal" id="personalModal"><div class="modal-header"><h2 id="personalModalTitle">Añadir Personal</h2></div><form id="personalForm"><div class="modal-body"><div class="profile-pic-preview-container" id="profilePicContainer"></div><div class="form-group"><label for="personalPhoto">Foto de Perfil</label><input type="file" id="personalPhoto" accept="image/*"></div><div class="form-group"><label for="personalName">Nombre Completo</label><input type="text" id="personalName" required></div><div class="form-group"><label for="personalRut">RUT</label><input type="text" id="personalRut" placeholder="12345678-9" required></div><div class="form-group"><label for="personalCargo">Cargo</label><select id="personalCargo" required><option value="Gerente">Gerente</option><option value="Cocinero">Cocinero</option><option value="Lavaplatos">Lavaplatos</option><option value="Mesero">Mesero</option><option value="Cajero">Cajero</option></select></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cancelar</button><button type="submit" class="btn btn-success">Guardar</button></div></form></div>
+    <div class="modal" id="menuModal"><div class="modal-header"><h2 id="menuModalTitle">Añadir Plato</h2></div><form id="menuForm"><div class="modal-body"><div class="form-group"><label for="menuName">Nombre del Plato</label><input type="text" id="menuName" required></div><div class="form-group"><label for="menuPrice">Precio</label><input type="number" id="menuPrice" min="0" required></div><div class="form-group"><label for="menuCategory">Categoría</label><select id="menuCategory" required><option value="Almuerzos">Almuerzos</option><option value="Postres">Postres</option><option value="Bebidas">Bebidas</option></select></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cancelar</button><button type="submit" class="btn btn-success">Guardar</button></div></form></div>
+    <div class="modal" id="billModal"><div class="modal-header"><h2>Generar Venta - Mesa <span id="billModalTableNumber"></span></h2></div><div class="modal-body" id="billDetails"></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cancelar</button><button id="generateReceiptBtn" class="btn btn-primary">Mostrar Boleta Final</button></div></div>
+    <div class="modal" id="receiptModal"><div class="modal-header"><h2>Boleta</h2></div><div class="modal-body" id="receiptContent"></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cerrar</button></div></div>
+    <div class="modal" id="cocinaDetailModal"><div class="modal-header"><h2>Pedido Mesa <span id="cocinaModalTableNumber"></span></h2></div><div class="modal-body"><ul id="cocinaItemList"></ul></div><div class="modal-footer"><button type="button" class="btn btn-secondary close-modal">Cerrar</button><button id="pedidoListoBtn" class="btn btn-success hidden">Pedido Listo</button></div></div>
+    <div id="toast"></div>
+
+    <script>
+    $(document).ready(function() {
+        let db; let currentCrudId = null; let currentTable = null; let currentFlow = ''; let currentUserPermissions = {};
+        let tempPhotoData = null;
+
+        const ROLES = {
+            'Gerente': { canViewPersonal: true, canViewMenu: true, canViewHistory: true, canOrder: true, canBill: true, canViewKitchen: true },
+            'Cocinero': { canViewPersonal: false, canViewMenu: true, canViewHistory: false, canOrder: false, canBill: false, canViewKitchen: true },
+            'Mesero': { canViewPersonal: false, canViewMenu: false, canViewHistory: false, canOrder: true, canBill: false, canViewKitchen: false },
+            'Cajero': { canViewPersonal: false, canViewMenu: false, canViewHistory: false, canOrder: false, canBill: true, canViewKitchen: false },
+            'Lavaplatos': { canViewPersonal: false, canViewMenu: false, canViewHistory: false, canOrder: false, canBill: false, canViewKitchen: false },
+        };
+
+        function initDB() {
+            const request = indexedDB.open("RestaurantDB_v5", 1);
+            request.onerror = e => console.error("Error DB:", e.target.errorCode);
+            request.onupgradeneeded = e => {
+                db = e.target.result;
+                if (!db.objectStoreNames.contains('personal')) { const personalStore = db.createObjectStore('personal', { keyPath: 'id', autoIncrement: true }); personalStore.transaction.oncomplete = () => { db.transaction('personal', 'readwrite').objectStore('personal').add({ name: "Gerente de Prueba", rut: "1-9", cargo: "Gerente", photo: null }); }; }
+                if (!db.objectStoreNames.contains('menu')) db.createObjectStore('menu', { keyPath: 'id', autoIncrement: true });
+                const ordersStore = db.objectStoreNames.contains('orders') ? request.transaction.objectStore('orders') : db.createObjectStore('orders', { keyPath: 'tableNumber' });
+                if (!ordersStore.indexNames.contains('status')) ordersStore.createIndex('status', 'status', { unique: false });
+                if (!db.objectStoreNames.contains('sales')) { const salesStore = db.createObjectStore('sales', { keyPath: 'id', autoIncrement: true }); salesStore.createIndex('monthYear', 'monthYear', { unique: false }); salesStore.createIndex('tableNumber', 'tableNumber', { unique: false }); }
+            };
+            request.onsuccess = e => { db = e.target.result; loadUsersForSelector(() => { applyPermissions(); }); };
+        }
+
+        async function applyPermissions() {
+            const userId = parseInt($('#currentUser').val());
+            if (!userId) { currentUserPermissions = {}; } 
+            else { const user = await getPerson(userId); currentUserPermissions = user ? ROLES[user.cargo] || {} : {}; }
+            
+            $('a[data-screen="personal"]').parent().toggle(!!currentUserPermissions.canViewPersonal);
+            $('a[data-screen="menu"]').parent().toggle(!!currentUserPermissions.canViewMenu);
+            $('a[data-screen="cocina"]').parent().toggle(!!currentUserPermissions.canViewKitchen);
+            $('a[data-screen="history"]').parent().toggle(!!currentUserPermissions.canViewHistory);
+            $('#navVentas').parent().toggle(!!currentUserPermissions.canOrder);
+            $('#navGenerarVenta').parent().toggle(!!currentUserPermissions.canBill);
+            $('#quickOrderBtn').toggle(!!currentUserPermissions.canOrder);
+            $('#quickBillBtn').toggle(!!currentUserPermissions.canBill);
+            $('#addPersonalBtn').toggle(!!currentUserPermissions.canViewPersonal);
+            $('#addMenuBtn').toggle(!!currentUserPermissions.canViewMenu);
+            showScreen('dashboard');
+        }
+
+        function showScreen(screenId) {
+            if (!db) return;
+            $('.screen').addClass('hidden');
+            $('#' + screenId + '-screen').removeClass('hidden');
+            const title = $(`a[data-screen="${screenId}"]`).text().trim() || 'Panel Principal';
+            $('#screenTitle').text(title);
+            $('.sidebar-menu a').removeClass('active');
+            $(`a[data-screen="${screenId}"]`).addClass('active');
+            if (screenId === 'dashboard') updateDashboard();
+            if (screenId === 'personal' && (currentUserPermissions.canViewPersonal || $.isEmptyObject(currentUserPermissions))) loadPersonal();
+            if (screenId === 'menu' && (currentUserPermissions.canViewMenu || $.isEmptyObject(currentUserPermissions))) loadMenu();
+            if (screenId === 'cocina' && currentUserPermissions.canViewKitchen) loadKitchenOrders();
+            if (screenId === 'history' && currentUserPermissions.canViewHistory) loadSalesHistory();
+            updateKitchenAlert();
+        }
+        
+        let toastTimer;
+        function showToast(message, type = 'success') { const $t = $('#toast'); clearTimeout(toastTimer); $t.text(message).removeClass('toast-success toast-error').addClass(`toast-${type}`).addClass('show'); toastTimer = setTimeout(() => $t.removeClass('show'), 3000); }
+        function showModal(modalId) { $('.modal-overlay, ' + modalId).fadeIn(200); }
+        function closeModal() { $('.modal-overlay, .modal').fadeOut(200); }
+        $('.modal-overlay, .close-modal').on('click', closeModal);
+
+        $('.sidebar-menu a[data-screen]').on('click', function(e) { e.preventDefault(); if ($(this).is(':visible')) showScreen($(this).data('screen')); });
+        $('#navVentas, #quickOrderBtn').on('click', () => { if (!currentUserPermissions.canOrder) { showToast('No tienes permiso.', 'error'); return; } currentFlow = 'order'; openTableSelectModal(); });
+        $('#navGenerarVenta, #quickBillBtn').on('click', () => { if (!currentUserPermissions.canBill) { showToast('No tienes permiso.', 'error'); return; } currentFlow = 'bill'; openTableSelectModal(); });
+        $('#currentUser').on('change', applyPermissions);
+
+        function updateDashboard() {
+            if(!db) return;
+            db.transaction('orders').objectStore('orders').count().onsuccess = function() { $('#occupiedTablesCount').text(`${this.result} / 10`); };
+            db.transaction('personal').objectStore('personal').count().onsuccess = function() { $('#personalCount').text(this.result); };
+            db.transaction('menu').objectStore('menu').count().onsuccess = function() { $('#menuCount').text(this.result); };
+        }
+        
+        function loadUsersForSelector(callback) { if (!db) return; db.transaction('personal').objectStore('personal').getAll().onsuccess = function() { const staff = this.result; const options = staff.map(p => `<option value="${p.id}">${p.name}</option>`).join(''); $('#currentUser').html(options); if(callback) callback(); }; }
+        function loadPersonal() { if (!db) return; db.transaction('personal').objectStore('personal').getAll().onsuccess = function() { const $tbody = $('#personalTableBody').empty(); this.result.forEach(p => { const photoHtml = p.photo ? `<img src="${p.photo}" class="profile-pic">` : '<i class="fa fa-user-circle profile-pic-icon"></i>'; $tbody.append(`<tr><td class="profile-pic-cell">${photoHtml}</td><td>${p.name}</td><td>${p.rut}</td><td>${p.cargo}</td><td class="actions-cell"><button class="btn-edit" data-id="${p.id}" style="color:var(--warning)"><i class="fa fa-pencil-alt"></i></button><button class="btn-delete" data-id="${p.id}" style="color:var(--danger)"><i class="fa fa-trash"></i></button></td></tr>`); }); }; }
+        $('#addPersonalBtn').on('click', () => { if (!currentUserPermissions.canViewPersonal) return; currentCrudId = null; tempPhotoData=null; $('#personalModalTitle').text('Añadir Personal'); $('#personalForm')[0].reset(); $('#profilePicContainer').html('<i class="fa fa-user-circle profile-pic-preview-icon"></i>'); showModal('#personalModal'); });
+        $('#personalPhoto').on('change', function(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = e => { tempPhotoData = e.target.result; $('#profilePicContainer').html(`<img src="${tempPhotoData}" class="profile-pic-preview">`); }; reader.readAsDataURL(file); });
+        $('#personalForm').on('submit', function(e) { e.preventDefault(); const rut = $('#personalRut').val(); if (!validarRut(rut)) { showToast('RUT inválido.', 'error'); return; } const data = { name: $('#personalName').val(), rut: formatRut(rut), cargo: $('#personalCargo').val() }; if(tempPhotoData) data.photo = tempPhotoData; const store = db.transaction('personal', 'readwrite').objectStore('personal'); if (currentCrudId) { data.id = currentCrudId; store.get(currentCrudId).onsuccess = function() { if(!data.photo && this.result.photo) data.photo = this.result.photo; store.put(data).onsuccess = () => { showToast('Personal guardado.'); closeModal(); loadPersonal(); }; }; } else { store.add(data).onsuccess = () => { showToast('Personal guardado.'); closeModal(); loadPersonal(); loadUsersForSelector(applyPermissions); }; } });
+        $('#personalRut').on('input', function(e) { let rut = $(this).val().replace(/[^0-9kK]/g, ''); if (rut.length > 1) rut = rut.slice(0, -1) + '-' + rut.slice(-1); $(this).val(rut.toUpperCase()); });
+        $('#personalTableBody').on('click', '.btn-edit', function() { if (!currentUserPermissions.canViewPersonal) return; currentCrudId = $(this).data('id'); tempPhotoData=null; db.transaction('personal').objectStore('personal').get(currentCrudId).onsuccess = function() { const p = this.result; $('#personalModalTitle').text('Editar Personal'); $('#personalName').val(p.name); $('#personalRut').val(p.rut); $('#personalCargo').val(p.cargo); const photoHtml = p.photo ? `<img src="${p.photo}" class="profile-pic-preview">` : '<i class="fa fa-user-circle profile-pic-preview-icon"></i>'; $('#profilePicContainer').html(photoHtml); showModal('#personalModal'); }; });
+        $('#personalTableBody').on('click', '.btn-delete', function() { if (!currentUserPermissions.canViewPersonal || !confirm('¿Seguro?')) return; db.transaction('personal', 'readwrite').objectStore('personal').delete($(this).data('id')).onsuccess = () => { showToast('Empleado eliminado.'); loadPersonal(); loadUsersForSelector(applyPermissions); }; });
+        
+        function loadMenu() { db.transaction('menu').objectStore('menu').getAll().onsuccess = function() { const $tbody = $('#menuTableBody').empty(); this.result.forEach(item => $tbody.append(`<tr><td>${item.name}</td><td>${formatCurrency(item.price)}</td><td>${item.category}</td><td class="actions-cell"><button class="btn-edit" data-id="${item.id}" style="color:var(--warning)"><i class="fa fa-pencil-alt"></i></button><button class="btn-delete" data-id="${item.id}" style="color:var(--danger)"><i class="fa fa-trash"></i></button></td></tr>`)); }; }
+        $('#addMenuBtn').on('click', () => { if (!currentUserPermissions.canViewMenu) return; currentCrudId = null; $('#menuModalTitle').text('Añadir Plato'); $('#menuForm')[0].reset(); showModal('#menuModal'); });
+        $('#menuForm').on('submit', function(e) { e.preventDefault(); const data={name:$('#menuName').val(),price:parseFloat($('#menuPrice').val()),category:$('#menuCategory').val()}; const store=db.transaction('menu','readwrite').objectStore('menu'); let request=currentCrudId?(data.id=currentCrudId,store.put(data)):store.add(data); request.onsuccess=()=>{showToast('Plato guardado.');closeModal();loadMenu();}; });
+        $('#menuTableBody').on('click', '.btn-edit', function(){ if (!currentUserPermissions.canViewMenu) return; currentCrudId=$(this).data('id'); db.transaction('menu').objectStore('menu').get(currentCrudId).onsuccess=function(){const i=this.result;$('#menuModalTitle').text('Editar Plato');$('#menuName').val(i.name);$('#menuPrice').val(i.price);$('#menuCategory').val(i.category);showModal('#menuModal');}; });
+        $('#menuTableBody').on('click', '.btn-delete', function(){ if (!currentUserPermissions.canViewMenu || !confirm('¿Seguro?'))return; db.transaction('menu','readwrite').objectStore('menu').delete($(this).data('id')).onsuccess=()=>{showToast('Plato eliminado.');loadMenu();}; });
+        
+        function openTableSelectModal(){db.transaction('orders').objectStore('orders').getAll().onsuccess=function(){const occupied=this.result.map(o=>o.tableNumber);const $grid=$('#tablesGrid').empty();for(let i=1;i<=10;i++){const isOccupied=occupied.includes(i);const $btn=$(`<button class="table-btn" data-table="${i}"><i class="fa fa-chair"></i><br>Mesa ${i}</button>`);if(isOccupied)$btn.addClass('occupied');if(currentFlow==='bill'&&!isOccupied)$btn.prop('disabled',true);$grid.append($btn);}showModal('#tablesModal');};}
+        $('#tablesGrid').on('click','.table-btn:not(:disabled)',function(){currentTable=$(this).data('table');closeModal();if(currentFlow==='order')openOrderModal(currentTable);else if(currentFlow==='bill')generateBill(currentTable);});
+        function openOrderModal(tableNum){db.transaction('menu').objectStore('menu').getAll().onsuccess=function(){const cats={Almuerzos:'',Postres:'',Bebidas:''};this.result.forEach(i=>{cats[i.category]+=`<div class="menu-item"><div class="menu-item-info"><span>${i.name}</span><span class="price">${formatCurrency(i.price)}</span></div><input type="number" class="quantity-input" min="0" value="0" data-id="${i.id}" data-price="${i.price}" data-name="${i.name}"></div>`});let html='';for(const c in cats)html+=`<div class="menu-category"><h3>${c}</h3>${cats[c]}</div>`;$('#orderMenuItems').html(html);$('#orderModalTableNumber').text(tableNum);db.transaction('orders').objectStore('orders').get(tableNum).onsuccess=function(){if(this.result)this.result.items.forEach(i=>$(`.quantity-input[data-id="${i.id}"]`).val(i.quantity));};showModal('#orderMenuModal');};}
+        $('#saveOrderBtn').on('click',function(){const currentUserId = parseInt($('#currentUser').val());if(!currentUserId){showToast('Seleccione un usuario actual.','error');return;}const items=[];$('.quantity-input').each(function(){const q=parseInt($(this).val());if(q>0)items.push({id:$(this).data('id'),name:$(this).data('name'),price:$(this).data('price'),quantity:q,ready:false});});if(items.length===0){showToast('No se seleccionó producto.','error');return;}const order={tableNumber:currentTable,items:items,timestamp:new Date(),meseroId:currentUserId,status:'enviado'};db.transaction('orders','readwrite').objectStore('orders').put(order).onsuccess=()=>{showToast(`Pedido para Mesa ${currentTable} enviado a cocina.`);closeModal();updateDashboard();updateKitchenAlert();};});
+        
+        function generateBill(tableNum){db.transaction('orders').objectStore('orders').get(tableNum).onsuccess=function(){const order=this.result;if(!order){showToast('La mesa no tiene pedido activo.','error');return;}let sub=0,itemsHtml='';order.items.forEach(i=>{const total=i.price*i.quantity;sub+=total;itemsHtml+=`<div class="receipt-item"><span>(${i.quantity}) ${i.name}</span><span>${formatCurrency(i.price*i.quantity)}</span></div>`});$('#billModalTableNumber').text(tableNum);$('#billDetails').html(`<div class="receipt-items"><strong>Detalle:</strong>${itemsHtml}</div><hr><div class="receipt-totals"><div><span>Subtotal:</span><span id="billSubtotal">${formatCurrency(sub)}</span></div><div><label><input type="checkbox" id="addTipCheckbox"> Agregar 10% Propina</label><span id="billTip"></span></div><hr><div><span>TOTAL:</span><span id="billTotal">${formatCurrency(sub)}</span></div></div>`);showModal('#billModal');};}
+        $(document).on('change','#addTipCheckbox',function(){const sub = parseFloat($('#billSubtotal').text().replace(/[$.]/g, '').replace(',', '.')) || 0; let tip=0;if($(this).is(':checked')){tip=sub*0.1;$('#billTip').text(formatCurrency(tip));}else{$('#billTip').text('');}$('#billTotal').text(formatCurrency(sub+tip));});
+        $('#generateReceiptBtn').on('click', function() {
+            const cajeroId = parseInt($('#currentUser').val()); if (!cajeroId) { showToast('Seleccione un cajero.', 'error'); return; }
+            const tableNumber = parseInt($('#billModalTableNumber').text());
+            db.transaction('orders').objectStore('orders').get(tableNumber).onsuccess = function() {
+                const order = this.result; const subtotalText = $('#billSubtotal').text(), tipText = $('#billTip').text() || formatCurrency(0), totalText = $('#billTotal').text();
+                const transactionId = `${tableNumber}-${Date.now()}`;
+                const saleData = { transactionId, tableNumber, date: new Date(), monthYear: `${new Date().getMonth()+1}-${new Date().getFullYear()}`, items: order.items, meseroId: order.meseroId, cajeroId, subtotal: parseFloat(subtotalText.replace(/[$.]/g,'').replace(',','.'))||0, tip: parseFloat(tipText.replace(/[$.]/g,'').replace(',','.'))||0, total: parseFloat(totalText.replace(/[$.]/g,'').replace(',','.'))||0 };
+                db.transaction('sales', 'readwrite').objectStore('sales').add(saleData).onsuccess = () => {
+                    Promise.all([ getPerson(saleData.meseroId), getPerson(saleData.cajeroId) ]).then(([mesero, cajero]) => {
+                        showSaleDetail({ ...saleData, mesero, cajero });
+                        closeModal();
+                        db.transaction('orders', 'readwrite').objectStore('orders').delete(tableNumber).onsuccess = () => { showToast(`Mesa ${tableNumber} liberada.`); updateDashboard(); updateKitchenAlert(); };
+                    });
+                };
+            };
+        });
+
+        function updateKitchenAlert() { if (db) { db.transaction('orders').objectStore('orders').index('status').count('enviado').onsuccess = function() { const c = this.result; $('.notification-badge').text(c).toggleClass('hidden', c === 0); }; } }
+        function loadKitchenOrders() { db.transaction('orders').objectStore('orders').index('status').getAll('enviado').onsuccess = function() { const $grid = $('#cocina-grid').empty(); if (this.result.length === 0) { $grid.html('<p>No hay pedidos pendientes.</p>'); return; } this.result.forEach(o => $grid.append(`<div class="order-card" data-table="${o.tableNumber}"><h3>Mesa ${o.tableNumber}</h3><p>${o.items.length} plato(s)</p></div>`)); }; updateKitchenAlert(); }
+        $('#cocina-grid').on('click','.order-card',function(){currentTable=$(this).data('table');db.transaction('orders').objectStore('orders').get(currentTable).onsuccess=function(){const o=this.result;const $l=$('#cocinaItemList').empty();o.items.forEach((i,idx)=>{$l.append(`<li><input type="checkbox" data-item-index="${idx}" ${i.ready?'checked':''}><span>${i.quantity} x ${i.name}</span></li>`);});$('#cocinaModalTableNumber').text(o.tableNumber);checkAllItemsReady();showModal('#cocinaDetailModal');};});
+        $('#cocinaItemList').on('change','input[type="checkbox"]',function(){const idx=$(this).data('item-index'),checked=$(this).is(':checked');$(this).parent().toggleClass('done',checked);const tx=db.transaction('orders','readwrite');const store=tx.objectStore('orders');store.get(currentTable).onsuccess=function(){const o=this.result;o.items[idx].ready=checked;store.put(o);};checkAllItemsReady();});
+        function checkAllItemsReady() { $('#pedidoListoBtn').toggleClass('hidden', $('#cocinaItemList input:not(:checked)').length > 0); }
+        $('#pedidoListoBtn').on('click', function() { const tx = db.transaction('orders', 'readwrite'); const store = tx.objectStore('orders'); store.get(currentTable).onsuccess = function() { const order = this.result; order.status = 'preparado'; store.put(order).onsuccess = () => { showToast(`Pedido de Mesa ${currentTable} listo.`); closeModal(); loadKitchenOrders(); }; }; });
+
+        function loadSalesHistory(monthFilter='',tableFilter=''){const req=db.transaction('sales').objectStore('sales').getAll();req.onsuccess=function(){let sales=this.result.reverse();if(monthFilter)sales=sales.filter(s=>s.monthYear===monthFilter);if(tableFilter)sales=sales.filter(s=>s.tableNumber==tableFilter);const $tbody=$('#salesHistoryTableBody').empty();if(sales.length===0){$tbody.append('<tr><td colspan="5" style="text-align:center;">No hay ventas.</td></tr>');populateFilters(this.result);return;};sales.forEach(s=>{$tbody.append(`<tr><td>${s.transactionId}</td><td>${s.tableNumber}</td><td>${formatDate(s.date)}</td><td>${formatCurrency(s.total)}</td><td><button class="btn-primary btn-view-sale" data-id="${s.id}" style="font-size:0.9em;padding:5px 10px;">Ver Detalle</button></td></tr>`);});populateFilters(this.result);};}
+        function populateFilters(allSales){const months=[...new Set(allSales.map(s=>s.monthYear))];const tables=[...new Set(allSales.map(s=>s.tableNumber))].sort((a,b)=>a-b);$('#filterMonth').html('<option value="">Todos los Meses</option>'+months.map(m=>`<option value="${m}">${m.replace('-','/')}</option>`).join(''));$('#filterTable').html('<option value="">Todas las Mesas</option>'+tables.map(t=>`<option value="${t}">Mesa ${t}</option>`).join(''));}
+        $('#filterMonth, #filterTable').on('change',()=>loadSalesHistory($('#filterMonth').val(),$('#filterTable').val()));
+        $('#clearFiltersBtn').on('click',()=>{ $('#filterMonth, #filterTable').val(''); loadSalesHistory(); });
+        $('#salesHistoryTableBody').on('click','.btn-view-sale',function(){db.transaction('sales').objectStore('sales').get($(this).data('id')).onsuccess=function(){Promise.all([getPerson(this.result.meseroId),getPerson(this.result.cajeroId)]).then(([m,c])=>showSaleDetail({...this.result,mesero:m,cajero:c}));};});
+        
+        function showSaleDetail(s){const mName=s.mesero?formatNameShort(s.mesero.name):'N/A',cName=s.cajero?formatNameShort(s.cajero.name):'N/A';let itemsHtml='';s.items.forEach(i=>{itemsHtml+=`<div class="receipt-item"><span>(${i.quantity}) ${i.name}</span><span>${formatCurrency(i.price*i.quantity)}</span></div>`});$('#receiptContent').html(`<div class="receipt-header"><h3>Copia Boleta</h3></div><div class="receipt-details"><p>Mesa: ${s.tableNumber}</p><p>Fecha: ${formatDate(s.date)}</p><p>Mesero: ${mName} | Cajero: ${cName}</p></div><div class="receipt-items"><strong>Detalle:</strong>${itemsHtml}</div><hr><div class="receipt-totals"><div><span>Subtotal:</span><span>${formatCurrency(s.subtotal||0)}</span></div><div><span>Propina:</span><span>${formatCurrency(s.tip||0)}</span></div><hr><div><span>TOTAL:</span><span>${formatCurrency(s.total||0)}</span></div></div><svg id="barcode"></svg>`);JsBarcode("#barcode",s.transactionId,{height:40,displayValue:false});showModal('#receiptModal');}
+        
+        function getPerson(id) { return new Promise(res => { if (!id) return res(null); db.transaction('personal').objectStore('personal').get(id).onsuccess = e => res(e.target.result); }); }
+        function formatCurrency(val){return new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP'}).format(val);}
+        function formatDate(d){const dt=new Date(d);return `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()} ${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`}
+        function validarRut(rut){if(!/^[0-9]+-[0-9kK]{1}$/.test(rut))return false;let t=rut.split('-');let d=t[1],r=t[0];let m=0,s=1;for(;r;r=Math.floor(r/10))s=(s+r%10*(9-m++%6))%11;return (s?s-1:'k')==d.toLowerCase();}
+        function formatRut(rut){rut=rut.replace(/[^0-9kK]/g,'').toUpperCase();if(rut.length>1)return rut.slice(0,-1)+'-'+rut.slice(-1);return rut;}
+        function formatNameShort(name){if(!name)return 'N/A';const p=name.trim().split(' ');if(p.length<2)return p[0];const i=p[0].charAt(0).toUpperCase(),l=p[1].charAt(0).toUpperCase()+p[1].slice(1),s=p.length>2?p[2].charAt(0).toUpperCase():'';return `${i}${l}${s}`;}
+        function updateClock() {
+            const now = new Date();
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            let hours = now.getHours();
+            const ampm = hours >= 12 ? 'pm' : 'am';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // La hora '0' debe ser '12'
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const str = `${days[now.getDay()]} ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()} ${hours}:${minutes} ${ampm}`;
+            $('#sidebar-clock').text(str);
+        }
+
+        initDB();
+        updateClock();
+        setInterval(updateClock, 1000 * 30); // Actualizar cada 30 segundos
+    });
+    </script>
+</body>
+</html>
